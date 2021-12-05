@@ -1,0 +1,10 @@
+CREATE TABLE `user` (
+	`ID` INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+	`user_id` TINYTEXT NOT NULL COLLATE 'utf8mb3_general_ci',
+	PRIMARY KEY (`ID`) USING BTREE,
+	UNIQUE INDEX `user_id` (`user_id`) USING HASH
+)
+COLLATE='utf8mb3_general_ci'
+ENGINE=InnoDB
+AUTO_INCREMENT=8
+;
