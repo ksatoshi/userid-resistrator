@@ -1,0 +1,3 @@
+message_api:
+  channel_access_token: 'Your channel access token Here!!'
+  channel_secret: 'Your channel secret here !!'
