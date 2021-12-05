@@ -1,16 +1,17 @@
 from io import SEEK_CUR
 from flask import Flask, request
 import base64,hashlib,hmac #署名検証用
-import yaml
+import os
 
 app = Flask(__name__)
 user_ids = []
 
 debug = False #デバッグ用のフラグ
 
-with open('settings.yml','r') as yml:
-        settings = yaml.safe_load(yml)
-        channel_secret = settings['message_api']['channel_secret'] #channel_secretの設定
+#環境変数からchannel_secretを取得
+channel_secret  = os.environ.get('CHANNEL_SECRET')
+if debug == True:
+    print('channel_secret:'+channel_secret)
 
 @app.route('/')
 def index():
@@ -33,7 +34,6 @@ def webhock():
             for line in data["events"]:
                 user_ids.append(line["source"]["userId"])
 
-            if debug == True:
                 print(user_ids) #デバッグ用の表示　完成時に削除すること
         except:
             print("json error")
