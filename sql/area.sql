@@ -1,10 +1,5 @@
-CREATE TABLE `area` (
-	`ID` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
-	`area_name` TEXT NOT NULL COLLATE 'utf8mb3_general_ci',
-	PRIMARY KEY (`ID`) USING BTREE,
-	UNIQUE INDEX `area_name` (`area_name`) USING HASH
-)
-COLLATE='utf8mb3_general_ci'
-ENGINE=InnoDB
-AUTO_INCREMENT=3
-;
+CREATE TABLE users.area(
+	id SERIAL NOT NULL,
+	area_name VARCHAR NOT NULL UNIQUE,
+	PRIMARY KEY (id)
+);
