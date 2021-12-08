@@ -5,9 +5,10 @@ import os,sys
 import psycopg2
 
 app = Flask(__name__)
-user_ids = []
+user_id_list = []
+resistrated_user_id_list = []
 
-debug = False #デバッグ用のフラグ
+debug = os.environ.get('IS_DEBUG') == 'True' #デバッグ用のフラグ
 
 #環境変数からchannel_secretを取得
 CHANNEL_SECRET  = os.environ.get('CHANNEL_SECRET')
@@ -19,6 +20,7 @@ def index():
 @app.route('/webhock', methods=['POST'])
 def webhock():
     data = request.get_json() #user_id抽出用のリクエストデータ(json)
+    print('data_type:{}'.format(type(data)))
     body = request.get_data(as_text=True) #検証用のリクエストデータ(string)
 
     if debug == False:
@@ -31,11 +33,31 @@ def webhock():
 
         try:
             for line in data["events"]:
-                user_ids.append(line["source"]["userId"])
+                user_id_list.append(line["source"]["userId"])
 
-                print(user_ids) #デバッグ用の表示　完成時に削除すること
-        except:
-            print("json error")
+                #DBから登録されているuser_idのリストを取得
+                sql = "SELECT user_id FROM public.user;"
+                print('executed SQL:{}'.format(sql))
+                coursor.execute(sql)
+                reistrated_user_id_list = list(coursor.fetchall())
+                conn.commit()
+
+                #resistrated_usr_id_listとuser_id_listの差分を求める
+                filted_user_id_list = list(filter(lambda x:x not in resistrated_user_id_list, user_id_list))
+
+                #DBへの登録
+                for id in filted_user_id_list:
+                    sql = "INSERT INTO public.user(user_id) VALUES ('{}');".format(id)
+                    coursor.execute(sql)
+                    conn.commit()
+                    print('executed SQL:{}'.format(sql))
+
+        except psycopg2.Error as e:
+            print('DBへの書き込みエラー')
+            print(e.pgerror)
+            #coursorの更新
+            conn.commit()
+
     else:
         print("This is not regular")
         return '',200,{}
@@ -48,12 +70,9 @@ def validation(body,signature):
         body.encode('utf-8'), hashlib.sha256).digest()
     val_signature = base64.b64encode(hash)
 
+    #デバッグ用のバイパス(完成後削除すること)
     if debug == True:
-        print('signature:'+str(signature))
-        print('val_signature'+str(val_signature))
-
-        print("val_signature type:"+str(type(val_signature)))
-        print("signature type:"+str(type(signature)))
+        return True
 
     if val_signature == signature:
         return True
