@@ -1,4 +1,4 @@
-CREATE TABLE users.user(
+CREATE TABLE public.user(
 id SERIAL NOT NULL,
 user_id VARCHAR UNIQUE NOT NULL,
 PRIMARY KEY (id)
