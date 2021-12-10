@@ -1,4 +1,4 @@
-CREATE TABLE users.resistration(
+CREATE TABLE public.resistration(
 	user_id INTEGER NOT NULL,
 	area_id INTEGER NOT NULL,
 	FOREIGN KEY (user_id) REFERENCES public.user(id) ON DELETE CASCADE ON UPDATE CASCADE,
