@@ -11,31 +11,49 @@ from linebot import(
 import linebot
 
 app = Flask(__name__)
-user_id_list = []
-resistrated_user_id_list = []
 
+#各定数を定義
 DEBUG = os.environ.get('IS_DEBUG') == 'True' #デバッグ用のフラグ
-
-#環境変数からchannel_secret,を取得
 CHANNEL_SECRET  = os.environ.get('CHANNEL_SECRET')
 ACCESS_TOKEN = os.environ.get('ACCESS_TOKEN')
-
 ROOT_URL = os.environ.get('ROOT_URL')
 CONSOLE_ROOT_URL = '{ROOT_URL}/control'.format(
     ROOT_URL=ROOT_URL
 )
 
-@app.route('/control/<uuid>')
-def index():
-    return 
+#@app.route('/control/<uuid:id>')
+#def control_console(id):
+#    #DBへのコネクションを作成
+#    conn = db_connect()
+#    cursor = conn.cursor()
+#
+#    #DB上にidが存在するかを確認
+#    sql = "SELECT EXISTS (SELECT * FROM public.verify WHERE id='{}'".format(id)
+#    if DEBUG == True:
+#        print('SQL EXECUTE:{}'.format(sql))
+#    cursor.execute(sql)
+#    result = cursor.fetchone()
+#    conn.commit()
+#
+#    #データベース上に存在しない場合正規のリクエストではないため500を返す
+#    if result[0] == False:
+#        cursor.cloe()
+#        conn.close()
+#        return '',500,{}
+#    else:
+#        #県リストと市町村リストそしてidをテンプレートに渡してレンダリングする
+
 
 @app.route('/webhock', methods=['POST'])
 def webhock():
+
     data = request.get_json() #user_id抽出用のリクエストデータ(json)
     print('data_type:{}'.format(type(data)))
     body = request.get_data(as_text=True) #検証用のリクエストデータ(string)
 
     signature = request.headers.get('x-line-signature')
+
+    conn = db_connect()
 
     if validation(body=body, signature=signature.encode('utf-8')) == True: #イベントの真贋判定
         if DEBUG == True:
@@ -49,16 +67,20 @@ def webhock():
                     if DEBUG == True:
                         print('user_id:{}'.format(user_id))
                 else:
-                    #ソースがユーザーからのイベントではない時200を返して処理を終える
+                    #ソースがユーザーからのイベントではない時400を返して処理を終える
                     return '',200,{}
+
+                #DB操作用のカーソルを作成
+                cursor = conn.cursor()
 
                 #user_idが既にDB上に存在しているか確認する
                 sql = "SELECT EXISTS (SELECT * FROM public.user WHERE user_id='{}');".format(user_id)
                 if DEBUG == True:
                     print('SQL EXECUTE:{}'.format(sql))
-                coursor.execute(sql)
+                cursor.execute(sql)
+                conn.commit()
 
-                result = coursor.fetchone()
+                result = cursor.fetchone()
                 print('Result:{}'.format(result))
 
                 #存在しない時DBに登録
@@ -66,7 +88,7 @@ def webhock():
                     sql = "INSERT INTO public.user(user_id) VALUES('{}');".format(user_id)
                     if DEBUG == True:
                         print('SQL EXECUTE:{}'.format(sql))
-                    coursor.execute(sql)
+                    cursor.execute(sql)
                     conn.commit()
 
                 #イベントがmessageである時送信されたテキストの解析
@@ -79,8 +101,8 @@ def webhock():
                         sql = "SELECT id FROM public.user WHERE user_id='{}'".format(user_id)
                         if DEBUG == True:
                             print('EXECUTE SQL:{}'.format(sql))
-                        coursor.execute(sql)
-                        id = coursor.fetchone()
+                        cursor.execute(sql)
+                        id = cursor.fetchone()
                         conn.commit()
 
                         #認証用のコード(6桁)を作成
@@ -96,7 +118,7 @@ def webhock():
                         )
                         if DEBUG == True:
                             print('SQL EXECUTE:{}'.format(sql))
-                        coursor.execute(sql)
+                        cursor.execute(sql)
                         conn.commit()
 
                         #ユーザにURLと認証コードを送信
@@ -110,10 +132,14 @@ def webhock():
                             str(verify_code)
                         )
                         send_msg_with_line(user_id=user_id, msgs=[url_msg,verify_code_msg])
+
+                        #DBとの接続を解除
+                        cursor.close()
+                        conn.close()
                 
                 #messageではない時200を返して処理を終了
                 else:
-                    return 'internal server error',500,{}
+                    return 'internal server error',200,{}
 
                 #全ての処理が正常終了した時200を返す
                 return '',200,{}
@@ -121,12 +147,11 @@ def webhock():
         except psycopg2.Error as e:
             print('DBへの書き込みエラー')
             print(e.pgerror)
-            #coursorの更新
-            conn.commit()
+            conn.clone()
 
     else:
         #正規のリクエストではないため200を返して終了
-        return 'internal server error',500,{}
+        return 'internal server error',400,{}
 
 #LINEユーザにメッセージを送信する関数
 def send_msg_with_line(user_id,msgs):
@@ -146,8 +171,6 @@ def send_msg_with_line(user_id,msgs):
     for msg in msgs:
         if DEBUG == True:
             print('SENNDING MESSAGE:{}'.format(msg))
-        
-
 
 #署名検証用の関数
 def validation(body,signature):
@@ -191,10 +214,6 @@ def db_connect():
         sys.exit()
 
     return conn
-
-#DB操作用のカーソルを作成
-conn = db_connect()
-coursor = conn.cursor()
 
 if __name__ == '__main__':
     app.run()
