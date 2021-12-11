@@ -1,4 +1,4 @@
-from flask import Flask, request
+from flask import Flask, request, render_template
 import base64,hashlib,hmac #署名検証用
 import os,sys
 import psycopg2
@@ -21,28 +21,82 @@ CONSOLE_ROOT_URL = '{ROOT_URL}/control'.format(
     ROOT_URL=ROOT_URL
 )
 
-#@app.route('/control/<uuid:id>')
-#def control_console(id):
-#    #DBへのコネクションを作成
-#    conn = db_connect()
-#    cursor = conn.cursor()
-#
-#    #DB上にidが存在するかを確認
-#    sql = "SELECT EXISTS (SELECT * FROM public.verify WHERE id='{}'".format(id)
-#    if DEBUG == True:
-#        print('SQL EXECUTE:{}'.format(sql))
-#    cursor.execute(sql)
-#    result = cursor.fetchone()
-#    conn.commit()
-#
-#    #データベース上に存在しない場合正規のリクエストではないため500を返す
-#    if result[0] == False:
-#        cursor.cloe()
-#        conn.close()
-#        return '',500,{}
-#    else:
-#        #県リストと市町村リストそしてidをテンプレートに渡してレンダリングする
+@app.route('/control/<uuid:id>')
+def control_console(id):
+    #DBへのコネクションを作成
+    conn = db_connect()
+    cursor = conn.cursor()
 
+    #DB上にidが存在するかを確認
+    sql = "SELECT EXISTS (SELECT * FROM public.verify WHERE id='{}');".format(id)
+    if DEBUG == True:
+        print('SQL EXECUTE:{}'.format(sql))
+    cursor.execute(sql)
+    result = cursor.fetchone()
+    conn.commit()
+
+    #データベース上に存在しない場合正規のリクエストではないため500を返す
+    if result[0] == False:
+        cursor.close()
+        conn.close()
+        return '',500,{}
+    else:
+        return render_template("control.html",title="登録",id=id)
+
+@app.route('/control/form', methods=['POST'])
+def control_form():
+    #送信データから値を抽出
+    user_uuid = request.form.get('user_uuid')
+    user_accept = request.form.get('accept')
+
+    #DBのコネクションを作成
+    conn = db_connect()
+    cursor = conn.cursor()
+
+    #user_accept==onの時ユーザーを登録
+    if user_accept == 'on':
+        #DBからuserのidを取得
+        sql = "SELECT user_id FROM public.verify WHERE id='{}';".format(user_uuid)
+        if DEBUG == True:
+            print('SQL EXECUTE:{}'.format(sql))
+        cursor.execute(sql)
+        user_id = cursor.fetchone()[0]
+        conn.commit()
+
+        #DBから函館の地域コードを取得
+        sql = "SELECT id FROM public.area WHERE area_name='函館市';"
+        if DEBUG == True:
+            print('SQL EXECUTE:{}'.format(sql))
+        cursor.execute(sql)
+        area_id = cursor.fetchone()[0]
+        conn.commit()
+
+        #resistrationに登録
+        sql = "INSERT INTO public.resistration(user_id,area_id) VALUES('{user_id}','{area_id}');".format(
+            user_id = user_id,
+            area_id = area_id
+        )
+        if DEBUG == True:
+            print('SQL EXECUTE:{}'.format(sql))
+        cursor.execute(sql)
+        conn.commit()
+
+        #verifyからユーザーを削除
+        sql = "DELETE FROM public.verify WHERE id = '{}';".format(user_uuid)
+        if DEBUG == True:
+            print('SQL EXECUTE:{}'.format(sql))
+        cursor.execute(sql)
+        conn.commit()
+
+        cursor.close()
+        conn.close()
+
+        return '<p>登録完了!!</p>'
+    else:
+        cursor.close()
+        conn.close()
+
+        return '',200,{}
 
 @app.route('/webhock', methods=['POST'])
 def webhock():
