@@ -201,7 +201,7 @@ def webhock():
         except psycopg2.Error as e:
             print('DBへの書き込みエラー')
             print(e.pgerror)
-            conn.clone()
+            conn.close()
 
     else:
         #正規のリクエストではないため200を返して終了
@@ -243,21 +243,9 @@ def validation(body,signature):
 
 #DB接続用の関数
 def db_connect():
-    #環境変数からデータベースの情報を取得
-    DATABASE_URL = os.environ.get('DATABASE_URL')
-    DATABASE_PORT = os.environ.get('DATABASE_PORT')
-    DATABASE_NAME = os.environ.get('DATABASE_NAME')
-    DATABASE_USER = os.environ.get('DATABASE_USER')
-    DATABASE_USER_PASS = os.environ.get('DATABASE_USER_PASS')
 
     #接続先文字列の生成
-    connection_info = 'postgresql://{user}:{password}@{host}:{port}/{dbname}'.format(
-        user=DATABASE_USER,
-        password=DATABASE_USER_PASS,
-        host=DATABASE_URL,
-        port=DATABASE_PORT,
-        dbname=DATABASE_NAME
-    )
+    connection_info = DATABASE_URL
 
     print('Connecting:{info}'.format(info=connection_info))
     conn = ''
