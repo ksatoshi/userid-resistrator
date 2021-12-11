@@ -1,22 +1,33 @@
-from io import SEEK_CUR
 from flask import Flask, request
 import base64,hashlib,hmac #署名検証用
 import os,sys
 import psycopg2
 import uuid
+import secrets
+from linebot.models import TextSendMessage
+from linebot import(
+    LineBotApi
+)
+import linebot
 
 app = Flask(__name__)
 user_id_list = []
 resistrated_user_id_list = []
 
-debug = os.environ.get('IS_DEBUG') == 'True' #デバッグ用のフラグ
+DEBUG = os.environ.get('IS_DEBUG') == 'True' #デバッグ用のフラグ
 
-#環境変数からchannel_secretを取得
+#環境変数からchannel_secret,を取得
 CHANNEL_SECRET  = os.environ.get('CHANNEL_SECRET')
+ACCESS_TOKEN = os.environ.get('ACCESS_TOKEN')
+
+ROOT_URL = os.environ.get('ROOT_URL')
+CONSOLE_ROOT_URL = '{ROOT_URL}/control'.format(
+    ROOT_URL=ROOT_URL
+)
 
 @app.route('/control/<uuid>')
 def index():
-    return 'Not found!!',404,{}
+    return 
 
 @app.route('/webhock', methods=['POST'])
 def webhock():
@@ -27,30 +38,85 @@ def webhock():
     signature = request.headers.get('x-line-signature')
 
     if validation(body=body, signature=signature.encode('utf-8')) == True: #イベントの真贋判定
+        if DEBUG == True:
+            print('This is regular request!!')
         try:
             for line in data["events"]:
-                #ユーザからのメッセージである場合のみuser_idを抽出
-                if line['source']['user']:
-                    user_id_list.append(line["source"]["userId"])
+                user_id=''
+                #ソースがユーザからのイベントである場合のみuser_idを抽出
+                if line['source']['type'] == 'user':
+                    user_id = line["source"]['userId']
+                    if DEBUG == True:
+                        print('user_id:{}'.format(user_id))
+                else:
+                    #ソースがユーザーからのイベントではない時200を返して処理を終える
+                    return '',200,{}
 
-                #DBから登録されているuser_idのリストを取得
-                sql = "SELECT user_id FROM public.user;"
-                print('executed SQL:{}'.format(sql))
+                #user_idが既にDB上に存在しているか確認する
+                sql = "SELECT EXISTS (SELECT * FROM public.user WHERE user_id='{}');".format(user_id)
+                if DEBUG == True:
+                    print('SQL EXECUTE:{}'.format(sql))
                 coursor.execute(sql)
-                reistrated_user_id_list = list(coursor.fetchall())
-                conn.commit()
 
-                #resistrated_usr_id_listとuser_id_listの差分を求める
-                filted_user_id_list = list(filter(lambda x:x not in resistrated_user_id_list, user_id_list))
+                result = coursor.fetchone()
+                print('Result:{}'.format(result))
 
-                #DBへの登録
-                for id in filted_user_id_list:
-                    sql = "INSERT INTO public.user(user_id) VALUES ('{}');".format(id)
+                #存在しない時DBに登録
+                if result[0] == False:
+                    sql = "INSERT INTO public.user(user_id) VALUES('{}');".format(user_id)
+                    if DEBUG == True:
+                        print('SQL EXECUTE:{}'.format(sql))
                     coursor.execute(sql)
-                    print('executed SQL:{}'.format(sql))
+                    conn.commit()
 
-                #一旦commit
-                coursor.commit()
+                #イベントがmessageである時送信されたテキストの解析
+                if line['type'] == 'message':
+                    if line['message']['text'] == '登録' or line['message']['text'] == '初期設定':
+                        #URL用のUUIDの生成
+                        user_uuid = uuid.uuid4()
+
+                        #DBからuserのidを取得
+                        sql = "SELECT id FROM public.user WHERE user_id='{}'".format(user_id)
+                        if DEBUG == True:
+                            print('EXECUTE SQL:{}'.format(sql))
+                        coursor.execute(sql)
+                        id = coursor.fetchone()
+                        conn.commit()
+
+                        #認証用のコード(6桁)を作成
+                        verify_code = secrets.randbelow(1100000)-100000
+                        #認証用のコードをハッシュ化
+                        verify_hash = hashlib.sha256(str(verify_code).encode()).hexdigest()
+
+                        #DBにUUIDとverify_hash,userのidを記録
+                        sql = "INSERT INTO public.verify(id,pass,user_id) VALUES ('{uuid}','{verify_pass}',{user_id});".format(
+                            uuid=user_uuid,
+                            verify_pass=verify_hash,
+                            user_id=id[0]
+                        )
+                        if DEBUG == True:
+                            print('SQL EXECUTE:{}'.format(sql))
+                        coursor.execute(sql)
+                        conn.commit()
+
+                        #ユーザにURLと認証コードを送信
+
+                        #URLを送信
+                        url_msg = '管理用コンソール用URL\n{root_url}/{uuid}'.format(
+                            root_url=CONSOLE_ROOT_URL,
+                            uuid=user_uuid
+                        )
+                        verify_code_msg = '確認コードは{}です。webページに戻り入力してください'.format(
+                            str(verify_code)
+                        )
+                        send_msg_with_line(user_id=user_id, msgs=[url_msg,verify_code_msg])
+                
+                #messageではない時200を返して処理を終了
+                else:
+                    return 'internal server error',500,{}
+
+                #全ての処理が正常終了した時200を返す
+                return '',200,{}
 
         except psycopg2.Error as e:
             print('DBへの書き込みエラー')
@@ -60,15 +126,38 @@ def webhock():
 
     else:
         #正規のリクエストではないため200を返して終了
-        return '',200,{}
+        return 'internal server error',500,{}
 
-    return '',200,{}
+#LINEユーザにメッセージを送信する関数
+def send_msg_with_line(user_id,msgs):
+    send_msg = TextSendMessage(text='')
+    try:
+        line_bot_api = LineBotApi(ACCESS_TOKEN)
+
+        for msg in msgs:
+            if DEBUG == True:
+                print('SENDING MESSAGE:{}'.format(msg))
+            send_msg = TextSendMessage(text=msg)
+            line_bot_api.push_message(user_id,send_msg)
+    except linebot.exceptions.LineBotApiError as e:
+        print(e.error.message)
+        print(e.error.details)
+
+    for msg in msgs:
+        if DEBUG == True:
+            print('SENNDING MESSAGE:{}'.format(msg))
+        
+
 
 #署名検証用の関数
 def validation(body,signature):
     hash = hmac.new(CHANNEL_SECRET.encode('utf-8'),
         body.encode('utf-8'), hashlib.sha256).digest()
     val_signature = base64.b64encode(hash)
+
+    #ローカルでバック用のバイパス
+    if DEBUG == True:
+        return True
 
     if val_signature == signature:
         return True
