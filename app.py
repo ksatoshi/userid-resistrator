@@ -243,6 +243,8 @@ def validation(body,signature):
 
 #DB接続用の関数
 def db_connect():
+    #環境変数からデータベースの情報を取得
+    DATABASE_URL = os.environ.get('DATABASE_URL')
 
     #接続先文字列の生成
     connection_info = DATABASE_URL
