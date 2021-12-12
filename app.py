@@ -161,7 +161,7 @@ def webhock():
 
                         #認証用のコード(6桁)を作成
                         verify_code = secrets.randbelow(999999)
-                        verify_code = str(verify_code).zfill(6)
+                        verify_code = str(verify_code).zfill(6) #6桁になるように0埋め
                         #認証用のコードをハッシュ化
                         verify_hash = hashlib.sha256(verify_code.encode()).hexdigest()
 

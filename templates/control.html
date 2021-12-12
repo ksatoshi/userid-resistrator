@@ -3,27 +3,59 @@
 <head>
     <meta charset="UTF-8" />
     <title>{{ title }}</title>
-    <!--Bootstrap css-->
+
+    <!--レスポンシブ用のメタタグ-->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!--bootstrapとのリンク-->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet"
         integrity="sha384-giJF6kkoqNQ00vy+HMDP7azOuL0xtbfIcaT9wjKHr8RbDVddVHyTfAAsrekwKmP1" crossorigin="anonymous">
 
-    <!--responsive meta tag from bootstrap-->
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!--独自のCSSの読み込み-->
+    <link rel="stylesheet" type="text/css" href="../static/css/control.css">
 </head>
 
 <body>
-    <h1>{{ title }}</h1>
-    <div>現在の対応地域は下記のみです。登録する場合は同意にチェックをし、送信してください</div>
-    <form action="/control/form" method="post">
-        <!--ユーザー識別用のidを負荷-->
-        <input type="hidden" name="user_uuid" id="user_uuid" value={{ id }}>
-        <label for="accept">同意する</label>
-        <input type="checkbox" name="accept" id="accept">
-        <br />
-        <input type="submit" value="登録する">
-    </form>
+    <div class="container">
+        <div class="row">
+            <p class="fs-1">登録フォーム</p>
+        </div>
+        <div class="row">
+            <p class="text-start">現在の対応地域は下記のみです。登録する場合は同意にチェックをし認証コードを入力して、送信してください。</p>
+        </div>
+        <div class="row">
+            <div class="col-1"></div>
+            <div class="col-11">
+                <ol>
+                    <lo>函館市</lo>
+                </ol>
+            </div>
+        </div>
+        <form>
+            <input type="hidden" name="user_uuid" id="user_uuid" value={{ id }}>
+            <div class="mb-3 formcheck">
+                <label for="user_resistration_accept_checkbox" class="form-check-label">登録する</label>
+                <input type="checkbox" class="form-check-input" id="user_resistration_accept_checkbox">
+            </div>
+            <div class="row">
+                <div class="col-auto">
+                    <label for="verify_code_input_box" class="col-form-label">認証コード</label>
+                </div>
+                <div class="col-auto">
+                    <input type="password" id="verify_code_input_box" class="form-control">
+                </div>
+            </div>
+            <br>
+            <div class="row">
+                <div class="col-1"></div>
+                <div class="col-10">
+                    <button class="container-fluid submit_button" id="submit_button">送信する</button>
+                </div>
+                <div class="col-1"></div>
+            </div>
+        </form>
+    </div>
 
-    <!--Bootstrap dependency script-->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/js/bootstrap.bundle.min.js"
         integrity="sha384-ygbV9kiqUc6oa4msXn9868pTtWMgiQaeYH7/t7LECLbyPA2x65Kgf80OJFdroafW"
         crossorigin="anonymous"></script>
