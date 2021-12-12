@@ -160,9 +160,10 @@ def webhock():
                         conn.commit()
 
                         #認証用のコード(6桁)を作成
-                        verify_code = secrets.randbelow(1100000)-100000
+                        verify_code = secrets.randbelow(999999)
+                        verify_code = str(verify_code).zfill(6)
                         #認証用のコードをハッシュ化
-                        verify_hash = hashlib.sha256(str(verify_code).encode()).hexdigest()
+                        verify_hash = hashlib.sha256(verify_code.encode()).hexdigest()
 
                         #DBにUUIDとverify_hash,userのidを記録
                         sql = "INSERT INTO public.verify(id,pass,user_id) VALUES ('{uuid}','{verify_pass}',{user_id});".format(
