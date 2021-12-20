@@ -1,3 +1,6 @@
+[これ](https://github.com/hashiba-k-jp/hakodate-a05)の片割れ  
+一応単独でも動くはず(APIKeyがすべて揃えば)
+
 # 使用時の注意
 環境変数に以下のものを設定すること
 - CHANNEL_ACCESS_TOKEN (LINE MESSAGE APIのアクセストークン)
